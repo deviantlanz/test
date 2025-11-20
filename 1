@@ -1,0 +1,162 @@
+-- CLEAN HITBOX GUI (Red | 0.75 Transparency | Size Default 16) --
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+-- SETTINGS
+local HitboxEnabled = true
+local HitboxSize = 16
+local HitboxColor = Color3.fromRGB(255, 0, 0)
+local HitboxTransparency = 0.75
+
+-- GUI
+local screenGui = Instance.new("ScreenGui", game.CoreGui)
+screenGui.ResetOnSpawn = false
+
+-- MAIN FRAME
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0,200,0,150)
+frame.Position = UDim2.new(0,50,0,50)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Active = true
+
+-- DRAGGING
+local dragging, dragInput, mousePos, framePos
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        mousePos = input.Position
+        framePos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - mousePos
+        frame.Position = UDim2.new(
+            framePos.X.Scale,
+            framePos.X.Offset + delta.X,
+            framePos.Y.Scale,
+            framePos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- HIDE/SHOW BUTTON (TOP RIGHT)
+local toggleGUI = Instance.new("TextButton", screenGui)
+toggleGUI.Size = UDim2.new(0,60,0,30)
+toggleGUI.Position = UDim2.new(1,-70,0,10)
+toggleGUI.BackgroundColor3 = Color3.fromRGB(50,50,50)
+toggleGUI.TextColor3 = Color3.fromRGB(255,255,255)
+toggleGUI.Text = "Hide"
+toggleGUI.Font = Enum.Font.SourceSansBold
+toggleGUI.TextSize = 18
+
+toggleGUI.MouseButton1Click:Connect(function()
+    frame.Visible = not frame.Visible
+    toggleGUI.Text = frame.Visible and "Hide" or "Show"
+end)
+
+-- HELPERS
+local function createButton(text,posY)
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(0,160,0,30)
+    btn.Position = UDim2.new(0,20,0,posY)
+    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Text = text
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    return btn
+end
+
+local function createLabel(text,posY)
+    local lbl = Instance.new("TextLabel", frame)
+    lbl.Size = UDim2.new(0,160,0,20)
+    lbl.Position = UDim2.new(0,20,0,posY)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.fromRGB(255,255,255)
+    lbl.Text = text
+    lbl.Font = Enum.Font.SourceSansBold
+    lbl.TextSize = 16
+    return lbl
+end
+
+-- GUI ELEMENTS
+local toggleBtn = createButton("Hitbox: ON",10)
+local sizeLabel = createLabel("Size: "..HitboxSize,50)
+local plusBtn = createButton("+ Size",70)
+local minusBtn = createButton("- Size",100)
+
+-- EXPANDER
+local function applyHitbox(model)
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if HitboxEnabled then
+        hrp.Size = Vector3.new(HitboxSize,HitboxSize,HitboxSize)
+        hrp.Color = HitboxColor
+        hrp.Transparency = HitboxTransparency
+        hrp.Material = Enum.Material.Neon
+        hrp.CanCollide = false
+    else
+        hrp.Size = Vector3.new(2,2,1)
+        hrp.Transparency = 1
+        hrp.Material = Enum.Material.Plastic
+        hrp.CanCollide = true
+    end
+end
+
+local function expandAll()
+    for _,m in ipairs(Workspace:GetDescendants()) do
+        if m:IsA("Model") and m:FindFirstChildOfClass("Humanoid") then
+            if not Players:GetPlayerFromCharacter(m) then
+                applyHitbox(m)
+            end
+        end
+    end
+end
+
+-- BUTTON EVENTS
+toggleBtn.MouseButton1Click:Connect(function()
+    HitboxEnabled = not HitboxEnabled
+    toggleBtn.Text = "Hitbox: "..(HitboxEnabled and "ON" or "OFF")
+    expandAll()
+end)
+
+plusBtn.MouseButton1Click:Connect(function()
+    HitboxSize = math.clamp(HitboxSize + 1,2,50)
+    sizeLabel.Text = "Size: "..HitboxSize
+    expandAll()
+end)
+
+minusBtn.MouseButton1Click:Connect(function()
+    HitboxSize = math.clamp(HitboxSize - 1,2,50)
+    sizeLabel.Text = "Size: "..HitboxSize
+    expandAll()
+end)
+
+-- AUTO APPLY TO NEW NPCs
+Workspace.DescendantAdded:Connect(function(obj)
+    if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
+        task.wait(0.1)
+        if not Players:GetPlayerFromCharacter(obj) then
+            applyHitbox(obj)
+        end
+    end
+end)
+
+expandAll()
